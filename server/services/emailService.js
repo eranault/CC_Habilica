@@ -26,7 +26,9 @@ async function getTransporter() {
       }
     })
   } else {
-    // Auto-create a free Ethereal test account for zero-config dev
+    // Auto-create a free Ethereal test account for zero-config dev.
+    // tls.rejectUnauthorized:false is required on Windows where Node.js
+    // rejects Ethereal's self-signed certificate chain.
     const testAccount = await nodemailer.createTestAccount()
     transporter = nodemailer.createTransport({
       host: 'smtp.ethereal.email',
@@ -35,7 +37,8 @@ async function getTransporter() {
       auth: {
         user: testAccount.user,
         pass: testAccount.pass
-      }
+      },
+      tls: { rejectUnauthorized: false }
     })
     console.log('[EMAIL] No SMTP config found — using Ethereal test account.')
     console.log(`[EMAIL] Ethereal user: ${testAccount.user}`)
@@ -55,6 +58,11 @@ const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173'
 async function sendPasswordResetEmail(toEmail, rawToken) {
   const transport = await getTransporter()
   const resetUrl = `${APP_URL}/reset-password?token=${rawToken}`
+
+  // Always log the link in dev so it's usable even when SMTP is unreachable
+  if (!process.env.SMTP_HOST) {
+    console.log(`[EMAIL] Password reset link for ${toEmail}: ${resetUrl}`)
+  }
 
   const info = await transport.sendMail({
     from: FROM,
