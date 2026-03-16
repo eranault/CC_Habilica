@@ -27,6 +27,9 @@ setInterval(() => {
  */
 function rateLimit({ windowMs = 15 * 60 * 1000, max = 100, keyBy = 'ip', message } = {}) {
   return (req, res, next) => {
+    // Skip rate limiting in test environment
+    if (process.env.NODE_ENV === 'test') return next()
+
     const key = buildKey(req, keyBy)
     const now = Date.now()
     const record = store.get(key)
