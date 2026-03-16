@@ -10,6 +10,7 @@ const checkinRoutes = require('./routes/checkins')
 const statsRoutes = require('./routes/stats')
 const partnerRoutes = require('./routes/partners')
 const notificationRoutes = require('./routes/notifications')
+const agentRoutes = require('./routes/agent')
 const { authenticate } = require('./middleware/auth')
 const { errorHandler } = require('./middleware/errorHandler')
 
@@ -34,6 +35,7 @@ app.use('/api/checkins', authenticate, checkinRoutes)
 app.use('/api/stats', authenticate, statsRoutes)
 app.use('/api/partners', authenticate, partnerRoutes)
 app.use('/api/notifications', authenticate, notificationRoutes)
+app.use('/api/agent', authenticate, agentRoutes)
 
 if (process.env.NODE_ENV === 'production') {
   app.use(express.static(path.join(__dirname, '../client/dist')))

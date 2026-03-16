@@ -12,6 +12,8 @@ import FocusModePage from './pages/FocusModePage'
 import StatsPage from './pages/StatsPage'
 import SettingsPage from './pages/SettingsPage'
 import PartnersPage from './pages/PartnersPage'
+import CoachPage from './pages/CoachPage'
+import RoundtablePage from './pages/RoundtablePage'
 import NotFoundPage from './pages/NotFoundPage'
 
 function ProtectedRoute({ children }) {
@@ -94,6 +96,8 @@ export default function App() {
         <Route path="focus" element={<FocusModePage />} />
         <Route path="stats" element={<StatsPage />} />
         <Route path="partners" element={<PartnersPage />} />
+        <Route path="coach" element={<CoachPage />} />
+        <Route path="roundtable" element={<RoundtablePage />} />
         <Route path="settings" element={<SettingsPage />} />
       </Route>
 

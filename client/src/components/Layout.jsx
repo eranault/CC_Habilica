@@ -3,11 +3,13 @@ import { useSyncStore } from '../store/syncStore'
 import { useAuthStore } from '../store/authStore'
 
 const NAV_ITEMS = [
-  { to: '/',         icon: '🏠', label: 'Home',     exact: true },
-  { to: '/stats',    icon: '📊', label: 'Stats'    },
-  { to: '/focus',    icon: '🎯', label: 'Focus'    },
-  { to: '/partners', icon: '🤝', label: 'Partners' },
-  { to: '/settings', icon: '⚙️', label: 'Settings' }
+  { to: '/',           icon: '🏠', label: 'Home',       exact: true },
+  { to: '/stats',      icon: '📊', label: 'Stats'      },
+  { to: '/focus',      icon: '🎯', label: 'Focus'      },
+  { to: '/coach',      icon: '🧠', label: 'Coach'      },
+  { to: '/roundtable', icon: '🏛️', label: 'Roundtable' },
+  { to: '/partners',   icon: '🤝', label: 'Partners'   },
+  { to: '/settings',   icon: '⚙️', label: 'Settings'   }
 ]
 
 function SyncIndicator() {

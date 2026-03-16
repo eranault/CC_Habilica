@@ -31,9 +31,14 @@ export default {
         'fade-in': 'fadeIn 0.15s ease-out',
         'slide-up': 'slideUp 0.2s ease-out',
         'scale-in': 'scaleIn 0.2s ease-out',
-        'pulse-soft': 'pulseSoft 2s ease-in-out infinite'
+        'pulse-soft': 'pulseSoft 2s ease-in-out infinite',
+        'slideInLeft': 'slideInLeft 0.25s ease-out'
       },
       keyframes: {
+        slideInLeft: {
+          '0%':   { transform: 'translateX(-12px)', opacity: '0' },
+          '100%': { transform: 'translateX(0)', opacity: '1' }
+        },
         checkBounce: {
           '0%':   { transform: 'scale(1)' },
           '30%':  { transform: 'scale(1.25)' },
