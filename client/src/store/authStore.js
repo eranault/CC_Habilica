@@ -6,6 +6,9 @@ export const useAuthStore = create((set, get) => ({
   isAuthenticated: false,
   isLoading: true,
 
+  /**
+   * Called once on app mount to restore session from httpOnly cookie.
+   */
   initAuth: async () => {
     try {
       const res = await apiClient.get('/auth/me')
@@ -41,6 +44,32 @@ export const useAuthStore = create((set, get) => ({
     } finally {
       set({ user: null, isAuthenticated: false })
     }
+  },
+
+  updateSettings: async (settings) => {
+    const res = await apiClient.patch('/auth/settings', settings)
+    if (res.data.success) {
+      set(state => ({
+        user: { ...state.user, settings: res.data.data.settings }
+      }))
+    }
+    return res.data
+  },
+
+  requestDeletion: async () => {
+    const res = await apiClient.post('/auth/delete-account')
+    if (res.data.success) {
+      set({ user: null, isAuthenticated: false })
+    }
+    return res.data
+  },
+
+  cancelDeletion: async () => {
+    const res = await apiClient.post('/auth/cancel-deletion')
+    if (res.data.success) {
+      await get().initAuth()
+    }
+    return res.data
   },
 
   updateUser: (updates) => {

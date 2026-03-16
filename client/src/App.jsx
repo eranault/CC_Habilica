@@ -6,6 +6,7 @@ import Layout from './components/Layout'
 import AuthLayout from './components/AuthLayout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
+import ResetPasswordPage from './pages/ResetPasswordPage'
 import DashboardPage from './pages/DashboardPage'
 import FocusModePage from './pages/FocusModePage'
 import StatsPage from './pages/StatsPage'
@@ -80,6 +81,9 @@ export default function App() {
         <Route path="/register" element={
           <PublicRoute><RegisterPage /></PublicRoute>
         } />
+        {/* Password reset is public — authenticated users can also access it */}
+        <Route path="/reset-password" element={<ResetPasswordPage />} />
+        <Route path="/forgot-password" element={<ResetPasswordPage />} />
       </Route>
 
       {/* Protected routes */}
