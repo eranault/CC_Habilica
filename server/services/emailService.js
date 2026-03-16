@@ -1,22 +1,33 @@
 const nodemailer = require('nodemailer')
 
 /**
- * Creates a nodemailer transporter from environment variables.
- * All free options:
- *   - Dev:  SMTP_HOST=smtp.ethereal.email  (auto-catch, no real emails sent)
- *   - Prod: any SMTP relay (Brevo free tier, Mailpit self-hosted, etc.)
+ * Email transport strategy:
+ *   - SMTP_HOST set → use real SMTP relay (Brevo, SES, Mailpit, etc.)
+ *   - SMTP_HOST not set → console-only mode: log the full email to stdout.
+ *     No network connection required, no SSL issues, works on every OS.
  *
- * If no SMTP config is provided, falls back to Ethereal (free ephemeral accounts)
- * and logs the preview URL to console — useful for dev without any setup.
+ * To use a real SMTP relay, add to server/.env:
+ *   SMTP_HOST=smtp.example.com
+ *   SMTP_PORT=587
+ *   SMTP_USER=you@example.com
+ *   SMTP_PASS=yourpassword
  */
 
-let transporter = null
+const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+const FROM = process.env.EMAIL_FROM || 'Streakr <noreply@streakr.app>'
 
-async function getTransporter() {
-  if (transporter) return transporter
+// ---------------------------------------------------------------------------
+// Transporter — built once and cached
+// ---------------------------------------------------------------------------
+
+let _transporter = null
+let _devMode = false
+
+function getTransporter() {
+  if (_transporter) return _transporter
 
   if (process.env.SMTP_HOST) {
-    transporter = nodemailer.createTransport({
+    _transporter = nodemailer.createTransport({
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT) || 587,
       secure: Number(process.env.SMTP_PORT) === 465,
@@ -26,45 +37,46 @@ async function getTransporter() {
       }
     })
   } else {
-    // Auto-create a free Ethereal test account for zero-config dev.
-    // tls.rejectUnauthorized:false is required on Windows where Node.js
-    // rejects Ethereal's self-signed certificate chain.
-    const testAccount = await nodemailer.createTestAccount()
-    transporter = nodemailer.createTransport({
-      host: 'smtp.ethereal.email',
-      port: 587,
-      secure: false,
-      auth: {
-        user: testAccount.user,
-        pass: testAccount.pass
-      },
-      tls: { rejectUnauthorized: false }
+    // Console transport — prints the email body to stdout.
+    // No external service, no SSL, no network required.
+    _devMode = true
+    _transporter = nodemailer.createTransport({
+      streamTransport: true,
+      newline: 'unix',
+      buffer: true
     })
-    console.log('[EMAIL] No SMTP config found — using Ethereal test account.')
-    console.log(`[EMAIL] Ethereal user: ${testAccount.user}`)
+    console.log('[EMAIL] No SMTP_HOST configured — running in console-only mode.')
+    console.log('[EMAIL] All emails will be printed to this terminal.')
   }
 
-  return transporter
+  return _transporter
 }
 
-const FROM = process.env.EMAIL_FROM || 'Streakr <noreply@streakr.app>'
-const APP_URL = process.env.CLIENT_URL || 'http://localhost:5173'
+// ---------------------------------------------------------------------------
+// Dev helper — pretty-print the message and highlight the important link
+// ---------------------------------------------------------------------------
+function logDevEmail(label, toEmail, link) {
+  const divider = '─'.repeat(60)
+  console.log(`\n[EMAIL] ${divider}`)
+  console.log(`[EMAIL] To:      ${toEmail}`)
+  console.log(`[EMAIL] Subject: ${label}`)
+  console.log(`[EMAIL] Link:    ${link}`)
+  console.log(`[EMAIL] ${divider}\n`)
+}
 
-/**
- * Send a password reset email.
- * @param {string} toEmail
- * @param {string} rawToken - the unhashed token to embed in the link
- */
+// ---------------------------------------------------------------------------
+// sendPasswordResetEmail
+// ---------------------------------------------------------------------------
 async function sendPasswordResetEmail(toEmail, rawToken) {
-  const transport = await getTransporter()
   const resetUrl = `${APP_URL}/reset-password?token=${rawToken}`
 
-  // Always log the link in dev so it's usable even when SMTP is unreachable
-  if (!process.env.SMTP_HOST) {
-    console.log(`[EMAIL] Password reset link for ${toEmail}: ${resetUrl}`)
+  if (_devMode || !process.env.SMTP_HOST) {
+    getTransporter() // ensure _devMode flag is set
+    logDevEmail('Reset your Streakr password', toEmail, resetUrl)
+    return
   }
 
-  const info = await transport.sendMail({
+  await getTransporter().sendMail({
     from: FROM,
     to: toEmail,
     subject: 'Reset your Streakr password',
@@ -73,8 +85,7 @@ async function sendPasswordResetEmail(toEmail, rawToken) {
       '',
       `Reset link (valid for 1 hour): ${resetUrl}`,
       '',
-      "If you didn't request this, you can safely ignore this email.",
-      'Your password will not change until you click the link above and choose a new one.'
+      "If you didn't request this, you can safely ignore this email."
     ].join('\n'),
     html: `
       <!DOCTYPE html>
@@ -97,26 +108,21 @@ async function sendPasswordResetEmail(toEmail, rawToken) {
       </html>
     `
   })
-
-  // In dev with Ethereal, log the preview URL
-  if (!process.env.SMTP_HOST) {
-    console.log(`[EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`)
-  }
-
-  return info
 }
 
-/**
- * Send a partner invite email.
- * @param {string} toEmail
- * @param {string} inviterEmail
- * @param {string} rawToken
- */
+// ---------------------------------------------------------------------------
+// sendPartnerInviteEmail
+// ---------------------------------------------------------------------------
 async function sendPartnerInviteEmail(toEmail, inviterEmail, rawToken) {
-  const transport = await getTransporter()
   const inviteUrl = `${APP_URL}/accept-invite?token=${rawToken}`
 
-  const info = await transport.sendMail({
+  if (_devMode || !process.env.SMTP_HOST) {
+    getTransporter()
+    logDevEmail(`${inviterEmail} invited you on Streakr`, toEmail, inviteUrl)
+    return
+  }
+
+  await getTransporter().sendMail({
     from: FROM,
     to: toEmail,
     subject: `${inviterEmail} wants you as their accountability partner on Streakr`,
@@ -124,7 +130,6 @@ async function sendPartnerInviteEmail(toEmail, inviterEmail, rawToken) {
       `${inviterEmail} has invited you to be their accountability partner on Streakr.`,
       '',
       "As a partner, you'll be able to see their weekly completion rate and send encouragement.",
-      "You won't be penalized if they miss a habit — it's purely supportive.",
       '',
       `Accept invite: ${inviteUrl}`,
       '',
@@ -154,24 +159,23 @@ async function sendPartnerInviteEmail(toEmail, inviterEmail, rawToken) {
       </html>
     `
   })
-
-  if (!process.env.SMTP_HOST) {
-    console.log(`[EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`)
-  }
-
-  return info
 }
 
-/**
- * Send weekly partner digest.
- * @param {string} toEmail - partner's email
- * @param {string} ownerEmail
- * @param {number} completionRate - percentage 0-100
- */
+// ---------------------------------------------------------------------------
+// sendWeeklyDigest
+// ---------------------------------------------------------------------------
 async function sendWeeklyDigest(toEmail, ownerEmail, completionRate) {
-  const transport = await getTransporter()
+  if (_devMode || !process.env.SMTP_HOST) {
+    getTransporter()
+    logDevEmail(
+      `${ownerEmail}'s weekly Streakr update`,
+      toEmail,
+      `${APP_URL} (${completionRate}% completion this week)`
+    )
+    return
+  }
 
-  const info = await transport.sendMail({
+  await getTransporter().sendMail({
     from: FROM,
     to: toEmail,
     subject: `${ownerEmail}'s weekly Streakr update`,
@@ -181,7 +185,7 @@ async function sendWeeklyDigest(toEmail, ownerEmail, completionRate) {
       <html>
       <head><meta charset="utf-8"></head>
       <body style="font-family:system-ui,sans-serif;max-width:480px;margin:40px auto;padding:0 20px;color:#1e293b">
-        <h2 style="color:#0f172a">Weekly update 🎉</h2>
+        <h2 style="color:#0f172a">Weekly update</h2>
         <p style="color:#475569">
           <strong>${ownerEmail}</strong> completed
           <strong style="font-size:24px;color:#14b8a6">${completionRate}%</strong>
@@ -197,12 +201,6 @@ async function sendWeeklyDigest(toEmail, ownerEmail, completionRate) {
       </html>
     `
   })
-
-  if (!process.env.SMTP_HOST) {
-    console.log(`[EMAIL] Preview URL: ${nodemailer.getTestMessageUrl(info)}`)
-  }
-
-  return info
 }
 
 module.exports = { sendPasswordResetEmail, sendPartnerInviteEmail, sendWeeklyDigest }
