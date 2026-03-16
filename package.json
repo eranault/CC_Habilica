@@ -1,0 +1,17 @@
+{
+  "name": "streakr",
+  "version": "1.0.0",
+  "description": "Streakr - Zero-punishment habit tracking app",
+  "private": true,
+  "scripts": {
+    "dev": "concurrently \"npm run dev:server\" \"npm run dev:client\"",
+    "dev:client": "cd client && npm run dev",
+    "dev:server": "cd server && npm run dev",
+    "build": "cd client && npm run build",
+    "start": "cd server && npm start",
+    "migrate": "cd server && node db/migrate.js"
+  },
+  "devDependencies": {
+    "concurrently": "^8.2.2"
+  }
+}
